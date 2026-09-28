@@ -50,6 +50,10 @@ The runner-up often matters as much as the winner:
 runner-up at 0.44 is far less decisive than 0.45 with the rest scattered thinly. See
 [Confidence & Thresholds](../results/confidence.md).
 
+A string-keyed Choice returns the option the server chose as it was sent, even one the question didn't declare, as
+both official SDKs do. An [enum-backed Choice](../queries/enums.md) can't hold an undeclared option, so reading one
+throws a `JevResponseValidationException` instead.
+
 ## Speculative questions
 
 Ask the follow-up Choices you *might* need in the same request, and let code read only the relevant one:
@@ -63,8 +67,8 @@ This costs a few extra input tokens and saves a second round trip. See
 
 ## Many options
 
-Options are cheap. Give the model the full list of categories, teams or products (up to 255) rather than a
-shortlist:
+Options are cheap. Give the model the full list of categories, teams or products rather than a shortlist. A
+Choice takes up to 255 options, so a list that gets an `other` added can hold up to 254:
 
 ```kotlin
 --8<-- "ChoiceExamples.kt:many-options"

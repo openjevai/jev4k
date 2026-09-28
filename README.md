@@ -1,7 +1,7 @@
 # jev4k
 
 [![GitHub release](https://img.shields.io/github/v/release/pambrose/jev4k)](https://github.com/pambrose/jev4k/releases)
-[![Maven Central](https://img.shields.io/maven-central/v/com.pambrose/jev4k)](https://central.sonatype.com/artifact/com.pambrose/jev4k)
+[![Maven Central](https://img.shields.io/maven-central/v/com.pambrose.jev4k/jev4k)](https://central.sonatype.com/artifact/com.pambrose.jev4k/jev4k)
 [![CI](https://github.com/pambrose/jev4k/actions/workflows/ci.yml/badge.svg)](https://github.com/pambrose/jev4k/actions/workflows/ci.yml)
 [![Documentation](https://github.com/pambrose/jev4k/actions/workflows/docs.yml/badge.svg)](https://jev4k.com/)
 [![codecov](https://codecov.io/gh/pambrose/jev4k/branch/master/graph/badge.svg)](https://codecov.io/gh/pambrose/jev4k)
@@ -9,7 +9,8 @@
 [![ktlint](https://img.shields.io/badge/ktlint%20code--style-%E2%9D%A4-FF4081)](https://pinterest.github.io/ktlint/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
-A Kotlin DSL and client for [TypeSafe](https://docs.typesafe.ai)'s **Jev** model.
+A Kotlin Multiplatform DSL and client for [TypeSafe](https://docs.typesafe.ai)'s **Jev** model, for the JVM, Apple
+platforms, Linux, Windows, and Node.js.
 
 Jev is a *System One* model: it doesn't generate text. You give it a **state** (a message, a document, a record) and a
 set of typed **questions**, and it returns typed **answers** with calibrated probabilities that your code can branch on,
@@ -38,6 +39,7 @@ JevClient().use { jev ->
 ## Contents
 
 - [Documentation](#documentation)
+- [Installation](#installation)
 - [Quick start](#quick-start)
 - [Questions and answers](#questions-and-answers)
 - [Defining questions](#defining-questions)
@@ -64,6 +66,48 @@ JevClient().use { jev ->
 | [llms.txt](https://jev4k.com/llms.txt)                        | An index of the site for coding agents              |
 | [Changelog](CHANGELOG.md)                                     | What changed in each release                        |
 | [Release notes](RELEASE_NOTES.md)                             | Narrative notes for each release                    |
+
+## Installation
+
+> [!WARNING]
+> **Upgrading from 0.1.0? The Maven coordinates have changed.** From 0.2.0 the group is `com.pambrose.jev4k`
+> (0.1.0 was `com.pambrose:jev4k`), so update the dependency as shown below. Most code written for 0.1.0 then works
+> unchanged. The [release notes](RELEASE_NOTES.md) list the few API changes that came with the move, and how to
+> exclude 0.1.0 if another library still brings it in.
+
+jev4k is on Maven Central. `com.pambrose.jev4k:jev4k` is the multiplatform module, and Gradle resolves it to the right
+artifact for each target, so a JVM project and a Kotlin Multiplatform project (in `commonMain`) use the same line:
+
+```kotlin
+dependencies {
+    implementation("com.pambrose.jev4k:jev4k:0.2.0")
+}
+```
+
+Maven doesn't read Gradle's module metadata, so a Maven build depends on the JVM artifact by name:
+
+```xml
+<dependency>
+    <groupId>com.pambrose.jev4k</groupId>
+    <artifactId>jev4k-jvm</artifactId>
+    <version>0.2.0</version>
+</dependency>
+```
+
+The whole API is common code; only the HTTP engine underneath changes from platform to platform.
+
+| Platform | Targets                                          | Default engine          |
+|----------|--------------------------------------------------|-------------------------|
+| JVM      | `jvm` (Java 17 bytecode)                         | CIO                     |
+| Apple    | macOS, iOS, tvOS and watchOS, with the simulators | Darwin (`NSURLSession`) |
+| Linux    | `linuxX64`, `linuxArm64`                         | Curl                    |
+| Windows  | `mingwX64`                                       | WinHttp                 |
+| Node.js  | `js`, `wasmJs`                                   | Js (`fetch`)            |
+
+Blocking calls (`jev.blocking`) exist on the JVM only. On Linux, the Curl engine needs the system's CA certificates
+(`ca-certificates`). On iOS, App Transport Security blocks a plain `http://` `baseUrl` unless the app allows it. The
+js and wasmJs artifacts are built and tested for Node.js. They would also load in a browser, but don't use them
+there: the page would hand the API key to every visitor. A browser app should call a backend of your own instead.
 
 ## Quick start
 
@@ -321,8 +365,8 @@ when {
 
 ## Client and configuration
 
-`JevClient` implements `JevApi`. Its calls are `suspend` functions, and `jev.blocking` offers the same calls for
-scripts, `main`, and tests.
+`JevClient` implements `JevApi`. Its calls are `suspend` functions, and on the JVM `jev.blocking` offers the same
+calls for scripts, `main`, and tests.
 
 | Suspending                         | Blocking                                    |
 |------------------------------------|---------------------------------------------|
@@ -332,13 +376,31 @@ scripts, `main`, and tests.
 | `jev.models()`                     | `jev.blocking.models()`                     |
 
 `evaluate` is the single call the others build on. It takes a JSON state and a `QuestionSet` from `questions { ... }` or
-`someQuery.questions`. `models()` lists the model names your account can use.
+`someQuery.questions`. `models()` lists the models your account can use, as a `ModelList`: a `List<ModelInfo>` that
+also carries the call's `requestId`. Any other `JevApi`, a fake say, gets the blocking calls from `api.blocking()`.
 
 Each call accepts `model = "..."` to override the default for that request. `jev-latest` points at the newest stable
 model. If you've tuned thresholds against a particular version, pin it by name, e.g. `jev-1.13.0`, because an alias can
 move to a new model.
 
 Close the client when done. `use { }` does this for you.
+
+### Per-call options
+
+`JevCallOptions` overrides the client's timeout, retry policy or headers for the calls that need something else,
+and can add top-level fields to the `evaluate` body. `withOptions` applies them to every call made through the
+result, `query` and `ask` included:
+
+```kotlin
+val interactive = JevCallOptions {
+    timeout = 2.seconds             // per attempt, instead of the client's
+    retry = RetryPolicy.NONE        // replaces the client's whole policy
+    headers["X-Trace-Id"] = traceId // over the client's and the built-in headers
+}
+val result = jev.withOptions(interactive).ask(Triage, state = ticket)
+```
+
+`evaluate` and `models` also take options directly. A setting left unset keeps the client's value.
 
 ### Configuration
 
@@ -353,8 +415,10 @@ val jev = JevClient {
 }
 ```
 
-Each setting resolves as: the explicit value, then the environment variable, then the default. Blank environment
-variables are ignored, and `JevConfig.toString()` never prints the key.
+Each setting resolves as: the explicit value, then the environment variable, then the default. String settings are
+trimmed, and a blank one counts as unset. `baseUrl` must be `https://` (plain `http://` is for `localhost`, or
+anywhere with `allowInsecureHttp = true`) and carry no credentials or query. The builder reports every problem at
+once in a `JevConfigException`, and neither its messages nor `JevConfig.toString()` print the key.
 
 ### Running with Ollaya
 
@@ -368,19 +432,27 @@ TYPESAFE_BASE_URL=http://localhost:11435
 TYPESAFE_DEFAULT_MODEL=laya
 ```
 
+For an Ollaya server on another host, such as `http://ollaya:11435` in Docker, also set `allowInsecureHttp = true`.
+
 ### Retries and timeouts
 
-`RetryPolicy`'s defaults match TypeSafe's official Python and JS SDKs:
+`RetryPolicy`'s defaults match TypeSafe's official JS SDK:
 
-| Setting                                     | Default                                                         |
-|---------------------------------------------|-----------------------------------------------------------------|
-| `maxRetries`                                | 2 retries after the first attempt                               |
-| `retryStatuses`                             | 408, 429, and 500–599 (including 529 Overloaded)                |
-| `retryOnConnectionError` / `retryOnTimeout` | `true` / `true`                                                 |
-| `initialBackoff` / `maxBackoff` / `jitter`  | 0.5 s, doubling up to 5 s, minus up to 25% jitter               |
-| `respectRetryAfter` / `maxRetryAfter`       | Honor the server's `retry-after-ms` / `Retry-After`, up to 60 s |
+| Setting                                     | Default                                                              |
+|---------------------------------------------|----------------------------------------------------------------------|
+| `maxRetries`                                | 2 retries after the first attempt                                    |
+| `retryStatuses`                             | 408, 429, and 500–599 (including 529 Overloaded)                     |
+| `retryOnConnectionError` / `retryOnTimeout` | `true` / `true`                                                      |
+| `initialBackoff` / `maxBackoff` / `jitter`  | 0.5 s, doubling up to 5 s, minus up to 25% jitter                    |
+| `respectRetryAfter` / `maxRetryAfter`       | Honor `retry-after-ms` / `Retry-After` (seconds or date), up to 60 s |
 
-`RetryPolicy.NONE` disables retries.
+`RetryPolicy.NONE` disables retries. The Python SDK shares these retries, backoff, jitter and statuses, but doesn't cap
+server hints, and it also gives each call a 30 s budget in total. jev4k has no total budget: `timeout` applies to each
+attempt, so a call that retries on long server hints can take a couple of minutes.
+
+Redirects are never followed: a 3xx is a `JevApiException`, since following one would send your headers, and on
+Node.js the request body, to whatever host it names. A response declaring a body over 16 MiB is refused before the
+body is read; one sent without a length is bounded only by `timeout`.
 
 ### Concurrency
 
@@ -400,25 +472,26 @@ jev4k is meant to be embedded in an application, so it keeps out of the host's w
 
 ### What it puts on your classpath
 
-Four `compile` dependencies (`ktor-client-core`,
-`kotlinx-serialization-json`, `kotlinx-coroutines-core`, `kotlin-stdlib`) and three `runtime` ones (`ktor-client-cio`,
-`ktor-client-content-negotiation`, `ktor-serialization-kotlinx-json`). Nothing else: no test
-framework, no logging backend.
+On the JVM, four `compile` dependencies (`ktor-client-core`, `kotlinx-serialization-json`, `kotlinx-coroutines-core`,
+`kotlin-stdlib`) and one `runtime` one, the CIO engine (`ktor-client-cio`). Nothing else: no test framework, no logging
+backend, and no content-negotiation plugin, since jev4k encodes its request body itself.
 
 ### Logging
 
-jev4k never logs. It writes nothing to stdout or stderr, installs no Ktor `Logging` plugin, and ships
-no SLF4J binding, so it can't interfere with your logging setup. `slf4j-api` reaches the classpath through Ktor,
-not jev4k; supply your own binding if you want Ktor's own output.
+jev4k never logs: it writes nothing to stdout or stderr itself, installs no Ktor `Logging` plugin, and ships no
+SLF4J binding, so it can't interfere with your logging setup. Ktor does use SLF4J on the JVM, though, and `slf4j-api`
+reaches the classpath through it. With no binding, SLF4J prints a three-line "No SLF4J providers were found" warning
+to stderr when the first `JevClient` is built. Add your application's binding, or `slf4j-nop` to silence it.
 
 ### Your own engine
 
-Pass one as `engine` and jev4k uses it instead of CIO. Closing a `JevClient` never closes an
-engine you supplied, so several clients can share one. If you do supply an engine, CIO can be dropped:
+Pass one as `engine` and jev4k uses it instead of the platform's default engine. Closing a `JevClient` never
+closes an engine you supplied, so several clients can share one. If you do supply an engine on the JVM, CIO can be
+dropped:
 
 ```kotlin
 dependencies {
-    implementation("com.pambrose:jev4k:0.1.0") {
+    implementation("com.pambrose.jev4k:jev4k:0.2.0") {
         exclude(group = "io.ktor", module = "ktor-client-cio-jvm")
     }
     implementation("io.ktor:ktor-client-okhttp:3.6.0")
@@ -443,8 +516,23 @@ JevResult r = jev.getBlocking().query("The payout failed again and I need this f
 double urgency = r.noul("urgent").getNoul();
 ```
 
-That exact code is [`JavaInterop.java`](src/test/java/website/JavaInterop.java), compiled with the test sources
-so it can't drift.
+That exact code is [`JavaInterop.java`](src/jvmTest/java/website/JavaInterop.java), compiled with the JVM test
+sources so it can't drift.
+
+Kotlin's `Duration` doesn't cross to Java either, so each setting of that type has a counterpart in milliseconds:
+`setTimeoutMillis` on the builder, `JevDefaults.TIMEOUT_MILLIS`, `with…` methods on `RetryPolicy` (whose constructor
+Java can't call), `JevCallOptionsBuilder.setTimeoutMillis`, and `JevRateLimitException.getRetryAfterMillis()`:
+
+```java
+return new JevClient(builder -> {
+    builder.setTimeoutMillis(2 * JevDefaults.TIMEOUT_MILLIS);
+    builder.setRetry(new RetryPolicy().withMaxRetries(4).withInitialBackoffMillis(250));
+    return Unit.INSTANCE;
+});
+```
+
+Every blocking call declares `InterruptedException`, so Java code catches it or declares it, and
+`BlockingJevKt.blocking(api)` gives any `JevApi` the blocking calls.
 
 Two Kotlin features don't cross to Java: property delegates, which a typed `JevQuery` is built from, and
 `inline reified` functions, which the Kotlin compiler emits as synthetic members that javac can't resolve. So
@@ -453,14 +541,16 @@ four things are out of reach from Java:
 - **Typed `JevQuery` objects** can't be declared. One declared in Kotlin can still be passed to `ask`.
 - **`@Serializable` states.** A state must be a `String` or a `JsonElement`; the reified `query`, `ask` and
   `jsonEntry` overloads are hidden rather than compiling into a runtime failure.
-- **Enum Choices through the DSL.** `QueryBuilder.choice<E>()` is reified and `enumChoiceRef` is `internal`, so
-  there's no route to one. Build a `ChoiceQuestion` with the option keys you want and add it with
-  `QueryBuilder.question(id, question)` instead.
+- **Enum Choices through the DSL.** `QueryBuilder.choice<E>()` is reified. Java can see the functions it calls
+  (`enumChoiceRef`, `QueryBuilder.add`, `JevResult.enumChoiceOf`), because inline code needs them public in the
+  bytecode, but they're internal to jev4k and can change without notice. Build a `ChoiceQuestion` with the option
+  keys you want and add it with `QueryBuilder.question(id, question)` instead.
 - **`JevResult.enumChoice<E>(id)`** is reified too. Read that answer with `result.choice(id)`, which is keyed by
   option string.
 
 Everything else is callable: `evaluate`, `models`, the inline `noul`, `choice` and `score` builders, the other
-result accessors, and enums implementing `JevOption`.
+result accessors, and enums implementing `JevOption`. Only the getters that return a `Duration`, such as
+`JevConfig.timeout` and `RetryPolicy.initialBackoff`, stay Kotlin-only.
 
 ### Module name
 
@@ -473,7 +563,7 @@ compiler is held to the Java 17 API, so nothing newer can slip in.
 
 ### Threads
 
-A `JevClient` is immutable once built and safe to share across coroutines. `jev.blocking` wraps the
+A `JevClient` is immutable once built and safe to share across coroutines. On the JVM, `jev.blocking` wraps the
 suspend calls in `runBlocking`, so call it from ordinary threads, never from inside a coroutine.
 
 ## Errors
@@ -490,20 +580,27 @@ Every failure of a request or a response is a `JevException`:
 | ↳ `JevPermissionDeniedException`    | 403                                                                                                                   |
 | ↳ `JevNotFoundException`            | 404                                                                                                                   |
 | ↳ `JevUnprocessableEntityException` | 422: the server rejected the request; `body` names the field                                                          |
-| ↳ `JevRateLimitException`           | 429; `retryAfter` is the server's hint                                                                                |
+| ↳ `JevRateLimitException`           | 429; `retryAfter` (`retryAfterMillis` from Java) is the server's hint                                                 |
 | ↳ `JevInternalServerException`      | 5xx                                                                                                                   |
 | ↳ ↳ `JevOverloadedException`        | 529: TypeSafe is temporarily overloaded                                                                               |
 | ↳ `JevResponseValidationException`  | A 2xx body that was malformed or didn't match the questions; `fieldPath` locates it                                   |
-| `JevConnectionException`            | No response: DNS, TLS, or a refused or dropped connection                                                             |
-| ↳ `JevTimeoutException`             | An attempt exceeded `timeout`                                                                                         |
+| `JevConnectionException`            | No complete response: DNS, TLS, a refused or dropped connection, or a body cut short                                  |
+| ↳ `JevTimeoutException`             | An attempt exceeded `timeout`, or a supplied engine's own connect or socket timeout (the message names which)         |
+
+On Linux and Windows, any bare `IllegalStateException` raised during a call is also a `JevConnectionException`,
+because that is how the Curl and WinHttp engines report a failed connection; the original is kept as its cause.
+
+Header names in `JevApiException.headers` are lowercased, so `e.headers["retry-after"]` finds the header however the
+server spelled it and whichever engine read it.
 
 Misusing a result is a programming error, not a `JevException`: asking for an id or handle that wasn't in the
-request, or reading a Noul as a Choice, throws `IllegalArgumentException`.
+request, reading a Noul as a Choice, or reading a Choice with an enum that lacks one of its options throws
+`IllegalArgumentException`.
 
 ## Testing code that uses jev4k
 
 Depend on the `JevApi` interface rather than `JevClient`. `query` and `ask` are extension functions over
-`JevApi.evaluate`, so a mock of that one method covers them all:
+`JevApi.evaluate`, so a mock of that one method covers them all.
 
 Build the result the mock returns with `jevResult`, which runs a response body through the same mapping the
 client uses, so a recorded response replays exactly as it arrived. `jevApiException` does the same for the
@@ -514,14 +611,23 @@ suspend fun route(jev: JevApi, ticket: Ticket): Team = jev.ask(Triage, state = t
 
 val jev = mockk<JevApi>()
 coEvery { jev.evaluate(any(), any(), any()) } returns
-    jevResult("""{"answers":{"team":{"type":"choice","choice":"technical","confidence":0.9}}}""", Triage.questions)
+    jevResult("""{"answers":{"team":{"type":"choice","choice":"TECHNICAL","confidence":0.9}}}""", Triage.questions)
 route(jev, ticket) shouldBe Team.TECHNICAL
 
 // The same for error handling: 429 gives a JevRateLimitException, 401 a JevAuthenticationException, and so on.
 coEvery { jev.evaluate(any(), any(), any()) } throws jevApiException(429, retryAfter = 2.seconds)
 ```
 
-To exercise the real client without the network, pass a Ktor `MockEngine` as`JevClient { engine = MockEngine { ... } }`.
+A result answers only the handles of the question set it was built for. Code that builds its questions on every call
+(inline handles, or a `JevQuery` class) sends a new set each time, so build the result from the one the mock received:
+
+```kotlin
+coEvery { jev.evaluate(any(), any(), any()) } answers { jevResult(body, secondArg()) }
+```
+
+A mock of `JevApi` needs `evaluate(any(), any(), any(), any())` stubbed as well when the code under test passes
+`JevCallOptions` or uses `withOptions`; a fake that implements only the three-argument `evaluate` needs nothing more. To
+exercise the real client without the network, pass a Ktor `MockEngine` as `JevClient { engine = MockEngine { ... } }`.
 This project's own tests do both.
 
 ## Writing good questions
@@ -545,30 +651,33 @@ These points are condensed from TypeSafe's documentation. A compressed copy of t
 
 ## Development
 
-Building jev4k needs JDK 25; Gradle's toolchain support downloads it if it's missing. The jar itself targets Java
-17, so applications on 17 or newer can embed it.
+Building jev4k needs JDK 25; Gradle's toolchain support downloads it if it's missing. The JVM jar itself targets
+Java 17, so applications on 17 or newer can embed it. Only a Mac, with Xcode, builds every target; Linux and Windows
+build everything but the Apple ones, which is why releases are published from a Mac.
 
 Copy [`.env.example`](.env.example) to `.env` (gitignored) and set `TYPESAFE_API_KEY` in it. Gradle loads that
 file into the environment of the test and example tasks, so `make example` and `make live-tests` work without
 exporting anything.
 
 ```bash
-make build                  # compile, without running tests
-make tests                  # kotlinter + detekt + unit tests
+make build                  # compile every target and the doc examples, lint, check the ABI; no tests
+make tests                  # kotlinter + detekt + ABI check + every test this host can run
+make jvm-tests              # the JVM tests only, the quickest loop
 make lint                   # kotlinter + detekt only
 make format                 # auto-format with ktlint
 make kdocs                  # API docs in build/dokka/html
 make example                # run the example against the live API (needs TYPESAFE_API_KEY)
-make live-tests             # smoke tests against the live API (needs TYPESAFE_API_KEY)
+make live-tests             # smoke tests and probes against the live API (needs TYPESAFE_API_KEY)
 make api-docs               # refresh the cached TypeSafe docs in jev-docs/
 make site                   # serve the documentation site (website/jev4k) locally
 make publish-local-snapshot # publish <version>-SNAPSHOT to ~/.m2
 ```
 
-The runnable example is [`TriageExample.kt`](src/test/kotlin/com/pambrose/jev4k/examples/TriageExample.kt). The unit
-tests use Kotest, MockK, and Ktor's `MockEngine`; one timeout test drives the real CIO engine against a loopback socket,
-so no traffic ever leaves the machine. Live tests run only when `TYPESAFE_API_KEY` is set and `JEV4K_LIVE=1`, which
-`make live-tests` sets.
+The runnable example is [`TriageExample.kt`](src/jvmTest/kotlin/com/pambrose/jev4k/examples/TriageExample.kt). The
+unit tests use Kotest, MockK, and Ktor's `MockEngine`, and most of them run on every platform. One timeout test drives
+the real CIO engine against a loopback socket, and one test per platform dials a loopback port nothing listens on, so
+no traffic ever leaves the machine. Live tests run only when `JEV4K_LIVE=1`, which `make live-tests` sets; the JVM
+smoke tests also need `TYPESAFE_API_KEY`, and fail, naming it, when it's missing.
 
 ## Thanks to TypeSafe
 

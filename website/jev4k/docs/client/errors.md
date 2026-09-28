@@ -6,8 +6,7 @@ icon: lucide/triangle-alert
 
 ## Retries
 
-Failed requests are retried automatically. `RetryPolicy`'s defaults match TypeSafe's official Python and JS
-SDKs:
+Failed requests are retried automatically. `RetryPolicy`'s defaults match TypeSafe's official JS SDK:
 
 | Setting                  | Default           | Meaning                                                              |
 |--------------------------|-------------------|----------------------------------------------------------------------|
@@ -18,8 +17,12 @@ SDKs:
 | `initialBackoff`         | 0.5 s             | first delay, doubling on each retry                                  |
 | `maxBackoff`             | 5 s               | cap on the delay                                                     |
 | `jitter`                 | 0.25              | subtract up to this fraction of each delay at random                 |
-| `respectRetryAfter`      | `true`            | honor the server's `retry-after-ms` / `Retry-After` header           |
+| `respectRetryAfter`      | `true`            | honor `retry-after-ms` / `Retry-After` (seconds or an HTTP date)     |
 | `maxRetryAfter`          | 60 s              | ignore server hints longer than this and use backoff instead         |
+
+The Python SDK shares these retries, backoff, jitter and statuses, but doesn't cap server hints, and it also gives
+each call a 30 s budget in total. jev4k has no total budget: `timeout` applies to each attempt, so a call that
+retries on long server hints can take a couple of minutes.
 
 `RetryPolicy.NONE` turns retries off. The [Configuration](configuration.md#retry-policies) page shows common
 variations.
@@ -40,17 +43,26 @@ Every failure of a request or a response is a `JevException`:
 | ↳ `JevPermissionDeniedException`    | 403                                                                                                            |
 | ↳ `JevNotFoundException`            | 404                                                                                                            |
 | ↳ `JevUnprocessableEntityException` | 422: the server rejected the request; `body` names the field                                                   |
-| ↳ `JevRateLimitException`           | 429; `retryAfter` is the server's hint, if it sent one                                                         |
+| ↳ `JevRateLimitException`           | 429; `retryAfter` (`retryAfterMillis` from Java) is the server's hint, if it sent one                          |
 | ↳ `JevInternalServerException`      | 5xx                                                                                                            |
 | ↳ ↳ `JevOverloadedException`        | 529: TypeSafe is temporarily overloaded                                                                        |
 | ↳ `JevResponseValidationException`  | a 2xx response that was malformed or didn't match the questions; `fieldPath` locates it                        |
-| `JevConnectionException`            | no response at all: DNS, TLS, or a refused or dropped connection                                               |
-| ↳ `JevTimeoutException`             | an attempt exceeded `timeout`                                                                                  |
+| `JevConnectionException`            | no complete response: DNS, TLS, a refused or dropped connection, or a body cut short                           |
+| ↳ `JevTimeoutException`             | an attempt exceeded `timeout`, or a supplied engine's own connect or socket timeout (the message names which)  |
 
-Messages include the status and request id, and never the API key.
+Messages include the status and request id, and never the API key. Header names in `headers` are lowercased, so
+`e.headers["retry-after"]` finds the header however the server spelled it and whichever engine read it.
+
+A redirect isn't followed, so a 3xx arrives as a plain `JevApiException`. A response declaring a body over 16 MiB is
+refused unread: a 2xx as a `JevResponseValidationException`, anything else as its status's exception with a null
+`body`, the message saying why.
+
+On Linux and Windows, any bare `IllegalStateException` raised during a call is also a `JevConnectionException`,
+because that is how the Curl and WinHttp engines report a failed connection; the original is kept as its cause.
 
 Misusing a result is a programming error, not a `JevException`: asking for an id or handle that wasn't in the
-request, or reading a Noul as a Choice, throws `IllegalArgumentException`.
+request, reading a Noul as a Choice, or reading a Choice with an enum that lacks one of its options throws
+`IllegalArgumentException`.
 
 ## Handling errors
 
