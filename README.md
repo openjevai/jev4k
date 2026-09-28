@@ -36,6 +36,8 @@ JevClient().use { jev ->
 }
 ```
 
+> **OpenJEV support:** Jev is built by [TypeSafe](https://typesafe.ai). This fork keeps TypeSafe as the default and adds optional support for [OpenJEV](https://openjev.sh), a free community gateway to the same Jev model — set `OPENJEV_API_KEY` (or `JEV_PROVIDER=openjev`) to use it. Original project: https://github.com/pambrose/jev4k by @pambrose.
+
 ## Contents
 
 - [Documentation](#documentation)
@@ -433,6 +435,19 @@ TYPESAFE_DEFAULT_MODEL=laya
 ```
 
 For an Ollaya server on another host, such as `http://ollaya:11435` in Docker, also set `allowInsecureHttp = true`.
+
+### Running with OpenJEV
+
+[OpenJEV](https://openjev.sh) is a free community gateway to the same Jev model. TypeSafe stays the default — anyone
+with a `TYPESAFE_API_KEY` sees zero behaviour change. To use OpenJEV instead:
+
+```bash
+export OPENJEV_API_KEY=oj-...
+```
+
+The client auto-selects OpenJEV when `TYPESAFE_API_KEY` is unset and `OPENJEV_API_KEY` is set. To use OpenJEV
+explicitly while a TypeSafe key is also present, set `JEV_PROVIDER=openjev` (or `provider = JevProvider.OPENJEV` in
+the builder). OpenJEV uses the endpoint `https://api.openjev.sh`, model `openjev`, and handles HTTP 503 on overload.
 
 ### Retries and timeouts
 

@@ -19,6 +19,10 @@ object JevDefaults {
     const val DEFAULT_MODEL_ENV = "TYPESAFE_DEFAULT_MODEL"
     const val BASE_URL = "https://api.typesafe.ai"
     const val MODEL = "jev-latest"
+    const val OPENJEV_API_KEY_ENV = "OPENJEV_API_KEY"
+    const val OPENJEV_BASE_URL = "https://api.openjev.sh"
+    const val OPENJEV_MODEL = "openjev"
+    const val PROVIDER_ENV = "JEV_PROVIDER"
     const val REQUEST_ID_HEADER = "x-typesafe-request-id"
     const val RETRY_AFTER_MS_HEADER = "retry-after-ms"
 
@@ -27,6 +31,17 @@ object JevDefaults {
 
     /** The default timeout for each HTTP attempt. */
     val TIMEOUT: Duration = TIMEOUT_MILLIS.milliseconds
+}
+
+/**
+ * Which backend serves Jev. [TYPESAFE] is the default; [OPENJEV] is a free community gateway to the same Jev model.
+ * Select one explicitly with [JevConfigBuilder.provider] or the `JEV_PROVIDER` environment variable; otherwise the
+ * client picks TypeSafe when `TYPESAFE_API_KEY` is set, or OpenJEV when only `OPENJEV_API_KEY` is set. Explicit
+ * `apiKey`, `baseUrl` and `defaultModel` always override the provider defaults.
+ */
+enum class JevProvider(internal val baseUrl: String, internal val model: String, internal val apiKeyEnv: String) {
+    TYPESAFE(JevDefaults.BASE_URL, JevDefaults.MODEL, JevDefaults.API_KEY_ENV),
+    OPENJEV(JevDefaults.OPENJEV_BASE_URL, JevDefaults.OPENJEV_MODEL, JevDefaults.OPENJEV_API_KEY_ENV),
 }
 
 /**
@@ -133,6 +148,13 @@ class JevConfigBuilder {
     /** Model used when a call doesn't name one; falls back to `TYPESAFE_DEFAULT_MODEL`, then `jev-latest`. */
     var defaultModel: String? = null
 
+    /**
+     * Which provider serves Jev: [JevProvider.TYPESAFE] (the default) or [JevProvider.OPENJEV]. Falls back to
+     * `JEV_PROVIDER`. When unset, TypeSafe is chosen if `TYPESAFE_API_KEY` is set, otherwise OpenJEV if
+     * `OPENJEV_API_KEY` is set. Explicit `apiKey`, `baseUrl` and `defaultModel` always override the provider defaults.
+     */
+    var provider: JevProvider? = null
+
     /** Timeout for each HTTP attempt. */
     var timeout: Duration = JevDefaults.TIMEOUT
 
@@ -171,11 +193,22 @@ class JevConfigBuilder {
     fun build(): JevConfig {
         fun fromEnv(name: String) = env(name).setting()
 
-        val key = apiKey.setting() ?: fromEnv(JevDefaults.API_KEY_ENV)
+        val resolvedProvider = provider
+            ?: fromEnv(JevDefaults.PROVIDER_ENV)?.let { name ->
+                JevProvider.entries.firstOrNull { it.name.equals(name, ignoreCase = true) }
+                    ?: throw JevConfigException("Unknown JEV_PROVIDER '$name'; use TYPESAFE or OPENJEV")
+            }
+            ?: when {
+                fromEnv(JevDefaults.API_KEY_ENV) != null -> JevProvider.TYPESAFE
+                fromEnv(JevDefaults.OPENJEV_API_KEY_ENV) != null -> JevProvider.OPENJEV
+                else -> JevProvider.TYPESAFE
+            }
+
+        val key = apiKey.setting() ?: fromEnv(resolvedProvider.apiKeyEnv)
             ?: throw JevConfigException(
-                "No TypeSafe API key: set apiKey or the ${JevDefaults.API_KEY_ENV} environment variable",
+                "No ${resolvedProvider.name} API key: set apiKey or the ${resolvedProvider.apiKeyEnv} environment variable",
             )
-        val url = (baseUrl.setting() ?: fromEnv(JevDefaults.BASE_URL_ENV) ?: JevDefaults.BASE_URL).trimEnd('/')
+        val url = (baseUrl.setting() ?: fromEnv(JevDefaults.BASE_URL_ENV) ?: resolvedProvider.baseUrl).trimEnd('/')
 
         // Checked here, not left to Ktor: Ktor validates them on every request, so a bad value would build a client
         // that fails every call with an exception that isn't a JevException, and its message echoes the value.
@@ -191,7 +224,8 @@ class JevConfigBuilder {
         return JevConfig(
             apiKey = key,
             baseUrl = url,
-            defaultModel = defaultModel.setting() ?: fromEnv(JevDefaults.DEFAULT_MODEL_ENV) ?: JevDefaults.MODEL,
+            defaultModel = defaultModel.setting() ?: fromEnv(JevDefaults.DEFAULT_MODEL_ENV) ?: resolvedProvider.model,
+            provider = resolvedProvider,
             timeout = timeout,
             retry = retry.snapshot(),
             engine = engine,
@@ -286,6 +320,7 @@ class JevConfig internal constructor(
     val apiKey: String,
     val baseUrl: String,
     val defaultModel: String,
+    val provider: JevProvider,
     val timeout: Duration,
     val retry: RetryPolicy,
     val engine: HttpClientEngine?,
@@ -295,6 +330,6 @@ class JevConfig internal constructor(
     internal val now: () -> Long,
 ) {
     override fun toString(): String =
-        "JevConfig(apiKey=***, baseUrl=$baseUrl, defaultModel=$defaultModel, timeout=$timeout, retry=$retry, " +
+        "JevConfig(apiKey=***, baseUrl=$baseUrl, defaultModel=$defaultModel, provider=$provider, timeout=$timeout, retry=$retry, " +
             "engine=${(engine ?: defaultEngine)::class.simpleName}, headers=${headers.keys})"
 }

@@ -167,6 +167,7 @@ public final class com/pambrose/jev4k/JevConfig {
 	public final fun getDefaultModel ()Ljava/lang/String;
 	public final fun getEngine ()Lio/ktor/client/engine/HttpClientEngine;
 	public final fun getHeaders ()Ljava/util/Map;
+	public final fun getProvider ()Lcom/pambrose/jev4k/JevProvider;
 	public final fun getRetry ()Lcom/pambrose/jev4k/RetryPolicy;
 	public final fun getTimeout-UwyO8pc ()J
 	public fun toString ()Ljava/lang/String;
@@ -181,6 +182,7 @@ public final class com/pambrose/jev4k/JevConfigBuilder {
 	public final fun getDefaultModel ()Ljava/lang/String;
 	public final fun getEngine ()Lio/ktor/client/engine/HttpClientEngine;
 	public final fun getHeaders ()Ljava/util/Map;
+	public final fun getProvider ()Lcom/pambrose/jev4k/JevProvider;
 	public final fun getRetry ()Lcom/pambrose/jev4k/RetryPolicy;
 	public final fun getTimeout-UwyO8pc ()J
 	public final fun getTimeoutMillis ()J
@@ -189,6 +191,7 @@ public final class com/pambrose/jev4k/JevConfigBuilder {
 	public final fun setBaseUrl (Ljava/lang/String;)V
 	public final fun setDefaultModel (Ljava/lang/String;)V
 	public final fun setEngine (Lio/ktor/client/engine/HttpClientEngine;)V
+	public final fun setProvider (Lcom/pambrose/jev4k/JevProvider;)V
 	public final fun setRetry (Lcom/pambrose/jev4k/RetryPolicy;)V
 	public final fun setTimeout-LRDsOJo (J)V
 	public final fun setTimeoutMillis (J)V
@@ -210,6 +213,10 @@ public final class com/pambrose/jev4k/JevDefaults {
 	public static final field DEFAULT_MODEL_ENV Ljava/lang/String;
 	public static final field INSTANCE Lcom/pambrose/jev4k/JevDefaults;
 	public static final field MODEL Ljava/lang/String;
+	public static final field OPENJEV_API_KEY_ENV Ljava/lang/String;
+	public static final field OPENJEV_BASE_URL Ljava/lang/String;
+	public static final field OPENJEV_MODEL Ljava/lang/String;
+	public static final field PROVIDER_ENV Ljava/lang/String;
 	public static final field REQUEST_ID_HEADER Ljava/lang/String;
 	public static final field RETRY_AFTER_MS_HEADER Ljava/lang/String;
 	public static final field TIMEOUT_MILLIS J
@@ -245,6 +252,14 @@ public final class com/pambrose/jev4k/JevOverloadedException : com/pambrose/jev4
 }
 
 public final class com/pambrose/jev4k/JevPermissionDeniedException : com/pambrose/jev4k/JevApiException {
+}
+
+public final class com/pambrose/jev4k/JevProvider : java/lang/Enum {
+	public static final field OPENJEV Lcom/pambrose/jev4k/JevProvider;
+	public static final field TYPESAFE Lcom/pambrose/jev4k/JevProvider;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public static fun valueOf (Ljava/lang/String;)Lcom/pambrose/jev4k/JevProvider;
+	public static fun values ()[Lcom/pambrose/jev4k/JevProvider;
 }
 
 public abstract class com/pambrose/jev4k/JevQuery {

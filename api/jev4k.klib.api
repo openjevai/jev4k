@@ -192,6 +192,8 @@ final class com.pambrose.jev4k/JevConfig { // com.pambrose.jev4k/JevConfig|null[
         final fun <get-engine>(): io.ktor.client.engine/HttpClientEngine? // com.pambrose.jev4k/JevConfig.engine.<get-engine>|<get-engine>(){}[0]
     final val headers // com.pambrose.jev4k/JevConfig.headers|{}headers[0]
         final fun <get-headers>(): kotlin.collections/Map<kotlin/String, kotlin/String> // com.pambrose.jev4k/JevConfig.headers.<get-headers>|<get-headers>(){}[0]
+    final val provider // com.pambrose.jev4k/JevConfig.provider|{}provider[0]
+        final fun <get-provider>(): com.pambrose.jev4k/JevProvider // com.pambrose.jev4k/JevConfig.provider.<get-provider>|<get-provider>(){}[0]
     final val retry // com.pambrose.jev4k/JevConfig.retry|{}retry[0]
         final fun <get-retry>(): com.pambrose.jev4k/RetryPolicy // com.pambrose.jev4k/JevConfig.retry.<get-retry>|<get-retry>(){}[0]
     final val timeout // com.pambrose.jev4k/JevConfig.timeout|{}timeout[0]
@@ -221,6 +223,9 @@ final class com.pambrose.jev4k/JevConfigBuilder { // com.pambrose.jev4k/JevConfi
     final var engine // com.pambrose.jev4k/JevConfigBuilder.engine|{}engine[0]
         final fun <get-engine>(): io.ktor.client.engine/HttpClientEngine? // com.pambrose.jev4k/JevConfigBuilder.engine.<get-engine>|<get-engine>(){}[0]
         final fun <set-engine>(io.ktor.client.engine/HttpClientEngine?) // com.pambrose.jev4k/JevConfigBuilder.engine.<set-engine>|<set-engine>(io.ktor.client.engine.HttpClientEngine?){}[0]
+    final var provider // com.pambrose.jev4k/JevConfigBuilder.provider|{}provider[0]
+        final fun <get-provider>(): com.pambrose.jev4k/JevProvider? // com.pambrose.jev4k/JevConfigBuilder.provider.<get-provider>|<get-provider>(){}[0]
+        final fun <set-provider>(com.pambrose.jev4k/JevProvider?) // com.pambrose.jev4k/JevConfigBuilder.provider.<set-provider>|<set-provider>(com.pambrose.jev4k.JevProvider?){}[0]
     final var retry // com.pambrose.jev4k/JevConfigBuilder.retry|{}retry[0]
         final fun <get-retry>(): com.pambrose.jev4k/RetryPolicy // com.pambrose.jev4k/JevConfigBuilder.retry.<get-retry>|<get-retry>(){}[0]
         final fun <set-retry>(com.pambrose.jev4k/RetryPolicy) // com.pambrose.jev4k/JevConfigBuilder.retry.<set-retry>|<set-retry>(com.pambrose.jev4k.RetryPolicy){}[0]
@@ -243,6 +248,17 @@ final class com.pambrose.jev4k/JevNotFoundException : com.pambrose.jev4k/JevApiE
 final class com.pambrose.jev4k/JevOverloadedException : com.pambrose.jev4k/JevInternalServerException // com.pambrose.jev4k/JevOverloadedException|null[0]
 
 final class com.pambrose.jev4k/JevPermissionDeniedException : com.pambrose.jev4k/JevApiException // com.pambrose.jev4k/JevPermissionDeniedException|null[0]
+
+final enum class com.pambrose.jev4k/JevProvider : kotlin/Enum<com.pambrose.jev4k/JevProvider> { // com.pambrose.jev4k/JevProvider|null[0]
+    enum entry OPENJEV // com.pambrose.jev4k/JevProvider.OPENJEV|null[0]
+    enum entry TYPESAFE // com.pambrose.jev4k/JevProvider.TYPESAFE|null[0]
+
+    final val entries // com.pambrose.jev4k/JevProvider.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<com.pambrose.jev4k/JevProvider> // com.pambrose.jev4k/JevProvider.entries.<get-entries>|<get-entries>#static(){}[0]
+
+    final fun valueOf(kotlin/String): com.pambrose.jev4k/JevProvider // com.pambrose.jev4k/JevProvider.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<com.pambrose.jev4k/JevProvider> // com.pambrose.jev4k/JevProvider.values|values#static(){}[0]
+}
 
 final class com.pambrose.jev4k/JevRateLimitException : com.pambrose.jev4k/JevApiException { // com.pambrose.jev4k/JevRateLimitException|null[0]
     final val retryAfter // com.pambrose.jev4k/JevRateLimitException.retryAfter|{}retryAfter[0]
@@ -588,6 +604,14 @@ final object com.pambrose.jev4k/JevDefaults { // com.pambrose.jev4k/JevDefaults|
         final fun <get-DEFAULT_MODEL_ENV>(): kotlin/String // com.pambrose.jev4k/JevDefaults.DEFAULT_MODEL_ENV.<get-DEFAULT_MODEL_ENV>|<get-DEFAULT_MODEL_ENV>(){}[0]
     final const val MODEL // com.pambrose.jev4k/JevDefaults.MODEL|{}MODEL[0]
         final fun <get-MODEL>(): kotlin/String // com.pambrose.jev4k/JevDefaults.MODEL.<get-MODEL>|<get-MODEL>(){}[0]
+    final const val OPENJEV_API_KEY_ENV // com.pambrose.jev4k/JevDefaults.OPENJEV_API_KEY_ENV|{}OPENJEV_API_KEY_ENV[0]
+        final fun <get-OPENJEV_API_KEY_ENV>(): kotlin/String // com.pambrose.jev4k/JevDefaults.OPENJEV_API_KEY_ENV.<get-OPENJEV_API_KEY_ENV>|<get-OPENJEV_API_KEY_ENV>(){}[0]
+    final const val OPENJEV_BASE_URL // com.pambrose.jev4k/JevDefaults.OPENJEV_BASE_URL|{}OPENJEV_BASE_URL[0]
+        final fun <get-OPENJEV_BASE_URL>(): kotlin/String // com.pambrose.jev4k/JevDefaults.OPENJEV_BASE_URL.<get-OPENJEV_BASE_URL>|<get-OPENJEV_BASE_URL>(){}[0]
+    final const val OPENJEV_MODEL // com.pambrose.jev4k/JevDefaults.OPENJEV_MODEL|{}OPENJEV_MODEL[0]
+        final fun <get-OPENJEV_MODEL>(): kotlin/String // com.pambrose.jev4k/JevDefaults.OPENJEV_MODEL.<get-OPENJEV_MODEL>|<get-OPENJEV_MODEL>(){}[0]
+    final const val PROVIDER_ENV // com.pambrose.jev4k/JevDefaults.PROVIDER_ENV|{}PROVIDER_ENV[0]
+        final fun <get-PROVIDER_ENV>(): kotlin/String // com.pambrose.jev4k/JevDefaults.PROVIDER_ENV.<get-PROVIDER_ENV>|<get-PROVIDER_ENV>(){}[0]
     final const val REQUEST_ID_HEADER // com.pambrose.jev4k/JevDefaults.REQUEST_ID_HEADER|{}REQUEST_ID_HEADER[0]
         final fun <get-REQUEST_ID_HEADER>(): kotlin/String // com.pambrose.jev4k/JevDefaults.REQUEST_ID_HEADER.<get-REQUEST_ID_HEADER>|<get-REQUEST_ID_HEADER>(){}[0]
     final const val RETRY_AFTER_MS_HEADER // com.pambrose.jev4k/JevDefaults.RETRY_AFTER_MS_HEADER|{}RETRY_AFTER_MS_HEADER[0]
